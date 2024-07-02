@@ -1,51 +1,46 @@
-import datetime
 import urllib.request
+import urllib.parse
 import xml.etree.ElementTree as ET
-import logging
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
-def get_yesterday_date():
-    return (datetime.date.today() - datetime.timedelta(days=1)).strftime('%Y%m%d')
-
-def fetch_arxiv_papers(date):
+def fetch_arxiv_papers(search_query, start=0, max_results=10):
     base_url = 'http://export.arxiv.org/api/query?'
-    search_query = f'submittedDate:{date}235959'
-    start = 0
-    max_results = 100
     
-    url = f"{base_url}search_query={search_query}&start={start}&max_results={max_results}&sortBy=submittedDate&sortOrder=descending"
+    params = {
+        'search_query': search_query,
+        'start': start,
+        'max_results': max_results,
+        'sortBy': 'lastUpdatedDate',
+        'sortOrder': 'descending'
+    }
     
-    try:
-        with urllib.request.urlopen(url) as response:
-            xml_data = response.read()
-    except urllib.error.URLError as e:
-        logger.error(f"Error fetching data from arXiv: {e}")
-        return []
+    url = base_url + urllib.parse.urlencode(params)
     
-    return parse_arxiv_response(xml_data)
-
-def parse_arxiv_response(xml_data):
+    print(f"Querying arXiv API with URL: {url}")
+    
+    with urllib.request.urlopen(url) as response:
+        xml_data = response.read()
+    
     root = ET.fromstring(xml_data)
+    
     papers = []
     for entry in root.findall('{http://www.w3.org/2005/Atom}entry'):
         title = entry.find('{http://www.w3.org/2005/Atom}title').text.strip()
-        authors = ', '.join([author.find('{http://www.w3.org/2005/Atom}name').text for author in entry.findall('{http://www.w3.org/2005/Atom}author')])
+        authors = [author.find('{http://www.w3.org/2005/Atom}name').text for author in entry.findall('{http://www.w3.org/2005/Atom}author')]
         summary = entry.find('{http://www.w3.org/2005/Atom}summary').text.strip()
-        papers.append((title, authors, summary))
+        papers.append({'title': title, 'authors': authors, 'summary': summary})
+    
     return papers
 
 def main():
-    yesterday = get_yesterday_date()
-    papers = fetch_arxiv_papers(yesterday)
+    search_query = 'cat:cs.AI'  # Example: Search for papers in the Computer Science AI category
+    papers = fetch_arxiv_papers(search_query)
     
-    logger.info(f"Papers submitted to arXiv on {yesterday}:")
+    print(f"Papers from arXiv matching query '{search_query}':")
     for paper in papers:
-        logger.info(f"Title: {paper[0]}")
-        logger.info(f"Authors: {paper[1]}")
-        logger.info(f"Summary: {paper[2][:200]}...")
-        logger.info("---")
+        print(f"Title: {paper['title']}")
+        print(f"Authors: {', '.join(paper['authors'])}")
+        print(f"Summary: {paper['summary'][:200]}...")  # Print first 200 characters of summary
+        print("---")
 
 if __name__ == "__main__":
     main()
