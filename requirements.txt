@@ -1,0 +1,2 @@
+setuptools>=58.0.0
+# Add any other dependencies your project needs
